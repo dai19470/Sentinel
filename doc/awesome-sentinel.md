@@ -1,4 +1,4 @@
-# Awesome Sentinel
+# sentinel学习资料
 
 [![Awesome](https://awesome.re/badge-flat.svg)](https://awesome.re)
 
