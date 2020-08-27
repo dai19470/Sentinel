@@ -117,6 +117,7 @@ public class CtSph implements Sph {
     private Entry entryWithPriority(ResourceWrapper resourceWrapper, int count, boolean prioritized, Object... args)
         throws BlockException {
         Context context = ContextUtil.getContext();
+        //1.对参数和全局配置项做检测，如果不符合要求就直接返回了一个CtEntry对象，不会再进行后面的限流检测，否则进入下面的检测流程。
         if (context instanceof NullContext) {
             // The {@link NullContext} indicates that the amount of context has exceeded the threshold,
             // so here init the entry only. No rule checking will be done.
@@ -133,6 +134,7 @@ public class CtSph implements Sph {
             return new CtEntry(resourceWrapper, null, context);
         }
 
+        // 2.根据包装过的资源对象获取对应的SlotChain
         ProcessorSlot<Object> chain = lookProcessChain(resourceWrapper);
 
         /*
@@ -143,11 +145,20 @@ public class CtSph implements Sph {
             return new CtEntry(resourceWrapper, null, context);
         }
 
+        /**
+         * 3.执行SlotChain的entry方法
+         *
+         * 3.1.如果SlotChain的entry方法抛出了BlockException，则将该异常继续向上抛出
+         *
+         * 3.2.如果SlotChain的entry方法正常执行了，则最后会将该entry对象返回
+         */
         Entry e = new CtEntry(resourceWrapper, chain, context);
         try {
+            // 执行Slot的entry方法
             chain.entry(context, resourceWrapper, null, count, prioritized, args);
         } catch (BlockException e1) {
             e.exit(count, args);
+            //4.如果上层方法捕获了BlockException，则说明请求被限流了，否则请求能正常执行
             throw e1;
         } catch (Throwable e1) {
             // This should not happen, unless there are errors existing in Sentinel internal.
@@ -191,6 +202,12 @@ public class CtSph implements Sph {
      * @param resourceWrapper target resource
      * @return {@link ProcessorSlotChain} of the resource
      */
+    /**
+     * 该方法使用了一个HashMap做了缓存，key是资源对象。这里加了锁，并且做了 doublecheck 。
+     * 具体构造chain的方法是通过： Env.slotsChainbuilder.build() 这句代码创建的。那就进入这个方法看看吧。
+     * @param resourceWrapper
+     * @return
+     */
     ProcessorSlot<Object> lookProcessChain(ResourceWrapper resourceWrapper) {
         ProcessorSlotChain chain = chainMap.get(resourceWrapper);
         if (chain == null) {
@@ -202,6 +219,7 @@ public class CtSph implements Sph {
                         return null;
                     }
 
+                    // 具体构造chain的方法
                     chain = SlotChainProvider.newSlotChain();
                     Map<ResourceWrapper, ProcessorSlotChain> newMap = new HashMap<ResourceWrapper, ProcessorSlotChain>(
                         chainMap.size() + 1);

@@ -18,6 +18,7 @@ package com.alibaba.csp.sentinel.slotchain;
 import com.alibaba.csp.sentinel.context.Context;
 
 /**
+ * DefaultProcessorSlotChain中有两个AbstractLinkedProcessorSlot类型的变量：first和end，这就是链表的头结点和尾节点。
  * @author qinan.qn
  * @author jialiang.linjl
  */
@@ -25,6 +26,7 @@ public class DefaultProcessorSlotChain extends ProcessorSlotChain {
 
     AbstractLinkedProcessorSlot<?> first = new AbstractLinkedProcessorSlot<Object>() {
 
+        //在DefaultProcessorSlotChain中first节点重写了entry方法
         @Override
         public void entry(Context context, ResourceWrapper resourceWrapper, Object t, int count, boolean prioritized, Object... args)
             throws Throwable {
@@ -69,9 +71,11 @@ public class DefaultProcessorSlotChain extends ProcessorSlotChain {
         return first.getNext();
     }
 
+    //执行SlotChain的entry方法
     @Override
     public void entry(Context context, ResourceWrapper resourceWrapper, Object t, int count, boolean prioritized, Object... args)
         throws Throwable {
+        //从fireEntry方法中就开始传递执行entry了
         first.transformEntry(context, resourceWrapper, t, count, prioritized, args);
     }
 

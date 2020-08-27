@@ -28,6 +28,14 @@ import com.alibaba.csp.sentinel.slots.system.SystemRule;
  * @author leyou
  * @author Eric Zhao
  */
+
+/**
+ * 每次调用 SphU#entry() 都会生成一个Entry入口，该入口中会保存了以下数据：入口的创建时间，当前入口所关联的节点，当前入口所关联的调用源对应的节点。Entry是一个抽象类，他只有一个实现类，在CtSph中的一个静态类：CtEntry。CtEntry包含了三个核心的对象：
+ *
+ * 父节点：Entry parent
+ * 子节点：Entry child
+ * 叶子节点：Node curNode
+ */
 public interface Sph extends SphResourceTypeSupport {
 
     /**

@@ -123,6 +123,18 @@ import java.util.Map;
  * @see EntranceNode
  * @see ContextUtil
  */
+
+/**
+ * 是用来构造调用链的，具体的是将资源的调用路径，封装成一个一个的节点，
+ * 再组成一个树状的结构来形成一个完整的调用链， NodeSelectorSlot是所有Slot中最关键也是最复杂的一个Slot。
+ */
+
+/**
+ * StatisticNode	执行具体的资源统计操作
+ * DefaultNode	该节点持有指定上下文中指定资源的统计信息，当在同一个上下文中多次调用entry方法时，该节点可能下会创建有一系列的子节点。另外每个DefaultNode中会关联一个ClusterNode
+ * ClusterNode	该节点中保存了资源的总体的运行时统计信息，包括rt，线程数，qps等等，相同的资源会全局共享同一个ClusterNode，不管他属于哪个上下文
+ * EntranceNode	该节点表示一棵调用链树的入口节点，通过他可以获取调用链树中所有的子节点
+ */
 @SpiOrder(-10000)
 public class NodeSelectorSlot extends AbstractLinkedProcessorSlot<Object> {
 
@@ -152,23 +164,32 @@ public class NodeSelectorSlot extends AbstractLinkedProcessorSlot<Object> {
          * The answer is all {@link DefaultNode}s with same resource name share one
          * {@link ClusterNode}. See {@link ClusterBuilderSlot} for detail.
          */
+        // 根据「上下文」的名称获取DefaultNode
+        // 多线程环境下，每个线程都会创建一个context，
+        // 只要资源名相同，则context的名称也相同，那么获取到的节点就相同
         DefaultNode node = map.get(context.getName());
         if (node == null) {
             synchronized (this) {
                 node = map.get(context.getName());
                 if (node == null) {
+                    // 如果当前「上下文」中没有该节点，则创建一个DefaultNode节点
                     node = new DefaultNode(resourceWrapper, null);
                     HashMap<String, DefaultNode> cacheMap = new HashMap<String, DefaultNode>(map.size());
                     cacheMap.putAll(map);
                     cacheMap.put(context.getName(), node);
                     map = cacheMap;
                     // Build invocation tree
+                    // 将当前node作为「上下文」的最后一个节点的子节点添加进去
+                    // 如果context的curEntry.parent.curNode为null，则添加到entranceNode中去
+                    // 否则添加到context的curEntry.parent.curNode中去
                     ((DefaultNode) context.getLastNode()).addChild(node);
                 }
 
             }
         }
-
+        // 将该节点设置为「上下文」中的当前节点
+        // 实际是将当前节点赋值给context中curEntry的curNode
+        // 在Context的getLastNode中会用到在此处设置的curNode
         context.setCurNode(node);
         fireEntry(context, resourceWrapper, node, count, prioritized, args);
     }
